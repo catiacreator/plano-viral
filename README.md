@@ -521,7 +521,8 @@ Cola isto no Lovable, liga o Supabase, e depois pede-lhe para criar as 3 Edge Fu
 6. [ ] Colar o **prompt do Lovable** (secção 5) e construir a app.
 7. [ ] **Inserir os 60 roteiros base** (Table Editor ou importar CSV).
 8. [ ] **Ligar a Hotmart** (secção 8): SQL do acesso pago + função `hotmart-webhook` + webhook na Hotmart.
-9. [ ] Testar: captura → lead na folha; sincronizar @ → gráfico + folha; upload PDF → campos preenchidos; compra Hotmart → trilha desbloqueia.
+9. [ ] **Funil + Calendário** (secção 9): coluna `inicio_trilha`, funil de barreira e login por telemóvel.
+10. [ ] Testar: captura → lead na folha; sincronizar @ → gráfico + folha; upload PDF → campos preenchidos; compra Hotmart → trilha desbloqueia; calendário cheio.
 
 ---
 
@@ -632,6 +633,27 @@ Na Hotmart: **Ferramentas → Webhook (Postback)** → aponta para o URL da fun�
 > **A trilha (roteiros) só aparece a quem tem `profiles.pago = true`. Se `pago = false`, mostra a trilha bloqueada com um aviso "Desbloqueia o teu Plano Viral" e um botão para a página de compra na Hotmart. O RLS já garante que sem pagamento não chegam roteiros — o bloqueio visual é a cereja no topo.**
 
 **Fluxo completo:** pessoa compra na Hotmart → webhook marca o email como pago → a pessoa regista-se (ou já estava registada) com esse email → a trilha desbloqueia automaticamente.
+
+---
+
+## 9. Funil de entrada (barreira) + Calendário
+
+### 9.1 — O funil de barreira (página de entrada)
+A entrada é um funil de **3 passos** no mesmo ecrã:
+1. **Captura** — @ Instagram + email + WhatsApp → chama `guardar-lead`.
+2. **Projeção (a barreira)** — um **gráfico** do crescimento que a pessoa pode alcançar (número real de hoje via `buscar-seguidores` + uma estimativa) **+** um **calendário de posts bloqueado** (só marcas *Reels / Carrossel*, sem títulos, clica mas **não abre nada**) **+** botão de **compra na Hotmart**.
+3. **Login (clientes)** — @ Instagram + **telemóvel** (autenticação **OTP por SMS** do Supabase). Só quem tem `pago = true` acede à trilha.
+
+> **Nota:** o login por telemóvel (OTP SMS) precisa de um fornecedor de SMS ligado ao Supabase (ex.: Twilio) — tem custo por SMS. Alternativa mais barata: email + password, com o @ apenas como campo de perfil.
+
+### 9.2 — Calendário (um post por dia)
+Uma página **Calendário** no menu, com o mês inteiro e **um post por dia**, colorido por categoria (Reels roxo · Stories rosa · Carrossel âmbar) e com o dia de hoje destacado. Enche-se a partir dos `roteiros` (mapeando o `dia` de cada um a uma data) e marca os **publicados** a partir do `progresso`. Para mapear "dia N" a uma data real, guarda-se quando cada aluna começou:
+
+```sql
+alter table public.profiles add column if not exists inicio_trilha date default current_date;
+```
+
+Assim o roteiro do `dia N` cai em `inicio_trilha + (N-1) dias`, e o calendário aparece cheio automaticamente à medida que houver roteiros. Não precisa de tabela nova.
 
 ---
 

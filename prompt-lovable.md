@@ -17,14 +17,19 @@ Constrói uma aplicação web completa (React) chamada **Plano Viral** — uma p
 
 ## Ecrãs (constrói todos)
 
-### 1. Página de captura (entrada pública, antes do login) — rota `/`
-Centrada, uma coluna. Logo "Plano Viral". Título grande **"Quantos seguidores já deverias ter?"** com as palavras "deverias ter" no gradiente. Subtítulo: "Escreve o teu @ e recebe o teu Plano Viral: o teu perfil hoje vs. daqui a 3 meses, com o caminho traçado dia a dia." Cartão com campos: **@ do Instagram** (nota: "O perfil tem de ser público para a análise automática."), **email**, **WhatsApp** (nota: "Enviamos a tua análise completa no WhatsApp."). Botão grande **com gradiente** "ANALISAR O MEU PERFIL →" que chama a Edge Function `guardar-lead` com `{ instagram, email, whatsapp }` (pública, sem login) e mostra "Enviado ✓". Link por baixo "Já tenho o meu Plano Viral, quero entrar" → vai para o login. Rodapé: "🔒 Análise gratuita de dados públicos. Sem pedir palavra-passe, sem aceder à tua conta."
+### 1. Funil de entrada (público) — rota `/`
+Um só ecrã com **três passos** (mostra um de cada vez, centrado, uma coluna):
 
-### 2. Login / Registo — rota `/entrar`
-Email + password. No registo pede também o **nome** (guarda em `options.data.nome`). Depois de entrar → Início.
+**Passo A — Captura.** Logo "Plano Viral". Título "Quantos seguidores já **deverias ter**?" (as palavras "deverias ter" no gradiente). Campos **@ do Instagram · email · WhatsApp**. Botão gradiente "Analisar o meu perfil" → chama `guardar-lead` com `{ instagram, email, whatsapp }` (pública) e **avança para o Passo B**. Link "Já tenho o meu Plano Viral, entrar" → Passo C. Rodapé: "🔒 Sem palavra-passe, sem aceder à tua conta."
+
+**Passo B — Projeção (a barreira).** Título "Olha o que podes **alcançar**, @{handle}". (1) **Gráfico de projeção** — curva com o gradiente, de "Hoje" para "Em 3 meses" (usa `buscar-seguidores` para o número real de hoje via Social Blade e mostra uma estimativa de crescimento). (2) **Calendário de posts BLOQUEADO** — o mês inteiro com **uma marca por dia**, mas **só a indicação Reels / Carrossel** (sem títulos); é clicável mas **não abre nada**; selo "🔒 Bloqueado". (3) Botão gradiente **"Desbloquear o meu Plano Viral"** → abre a página de compra na **Hotmart**. Link "Já tenho o Plano Viral, entrar" → Passo C.
+
+**Passo C — Login (clientes).** Campos **@ do Instagram** e **telemóvel**. Botão "Entrar". Usa **autenticação por telemóvel (OTP por SMS) do Supabase**: a pessoa mete o telemóvel, recebe um código por SMS, entra; guarda o @ no perfil. Só quem tem `pago = true` acede à trilha.
+
+> **Nota técnica:** o login por telemóvel (OTP SMS) precisa de um fornecedor de SMS ligado ao Supabase (ex.: Twilio) — tem custo por SMS. Alternativa mais barata: email + password, mostrando o @ apenas como campo de perfil.
 
 ### 3. Estrutura da app (depois do login)
-Barra lateral fixa à esquerda (desktop): logo "Plano Viral", menu **Início · Minha trilha · Análise**, e — só se `profiles.papel = 'admin'` — uma secção "Professora" com **Painel admin**. Em telemóvel, esconde a barra lateral e mostra uma **barra de navegação inferior** com os mesmos itens. Barra superior: pesquisa, botão "Minha trilha", botão de tema, e avatar (nome + "Aluno").
+Barra lateral fixa à esquerda (desktop): logo "Plano Viral", menu **Início · Minha trilha · Calendário · Análise**, e — só se `profiles.papel = 'admin'` — uma secção "Professora" com **Painel admin**. Em telemóvel, esconde a barra lateral e mostra uma **barra de navegação inferior** com os mesmos itens. Barra superior: pesquisa, botão "Minha trilha", botão de tema, e avatar (nome + "Aluno").
 
 ### 4. Início — rota `/inicio`
 Saudação "Olá, {nome} 👋" + data por cima. Card **"Crescimento no Instagram"**: número grande de seguidores (de `metricas`), "+X esta semana", **gráfico de linha da evolução** (ESTE é o sítio do gradiente — a linha usa o gradiente Cat.IA), e stats "esta semana / média / melhor semana". Botão **"Sincronizar com o Instagram"** que chama `buscar-seguidores` com `{ instagram }` e recarrega o gráfico. Secção "Trilha do mês": card do próximo roteiro a fazer + grelha de miniaturas dos próximos.
@@ -32,6 +37,9 @@ Saudação "Olá, {nome} 👋" + data por cima. Card **"Crescimento no Instagram
 ### 5. Minha trilha — rota `/trilha`
 **BLOQUEIO (paywall):** se `profiles.pago = false`, mostra a trilha **bloqueada** com "Desbloqueia o teu Plano Viral" e um botão para a página de compra na Hotmart. Se `pago = true`, mostra normal:
 Título "Minha trilha". Card de progresso: "X de 60 feitos", percentagem, barra, botão "Baixar PDF". Abas **"A fazer" / "Concluídos"** (de `progresso`). Pesquisa por título/categoria. Lista de `roteiros` (base com `user_id` nulo + os da própria aluna) ordenados por `dia`: cada card tem badge do dia, tag de categoria colorida, duração, dificuldade. **Clicar em qualquer card (nas duas abas) abre o roteiro.** Os concluídos mostram "✓ Feito" a verde.
+
+### 5b. Calendário — rota `/calendario` (só quem tem `pago = true`)
+Vista de **mês** com **um post por dia**: cada dia mostra o roteiro desse dia (título + cor da categoria: Reels roxo, Stories rosa, Carrossel âmbar), com o **dia de hoje destacado**. Constrói a partir da tabela `roteiros` — mapeia o `dia` de cada roteiro a uma data real a partir de `profiles.inicio_trilha` (data em que a aluna começou) — e marca como **publicados** os que estão em `progresso` (feito, por `concluido_em`). Tem navegação de mês (‹ Agosto 2026 ›), legenda de categorias, e um resumo "X de N publicados". O calendário enche-se sozinho à medida que houver roteiros.
 
 ### 6. Roteiro — rota `/trilha/:id`
 Link "Voltar para Minha trilha". Cabeçalho: tag de categoria, dia, duração, dificuldade, link "Ver vídeos de referência". Blocos **Tema central**, **Gancho inicial** (em itálico serif Fraunces), **Roteiro completo** — cada um com botão "Copiar". Painel lateral fixo: botão "Copiar roteiro inteiro" + botão verde **"Marcar como feito"** (upsert em `progresso`: feito=true, concluido_em=agora) + resumo (formato, duração, dificuldade, progresso X/60).
